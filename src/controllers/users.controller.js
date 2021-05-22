@@ -1,8 +1,13 @@
-import path from 'path';
+import csvtojson from 'csvtojson';
 import { PythonShell } from 'python-shell';
 import { TwitterClient } from 'twitter-api-client';
 import * as UserModel from '../models/users.model';
-
+const twitterClient = new TwitterClient({
+    apiKey: 'AL6gbsMB82UaB2aJTqRhfnJ0N',
+    apiSecret: '5kG5TYeLWzlFo4YKyQCxbfSXiSdoqEWOFWzF5kfI3o3SBoNspV',
+    accessToken: '1330790482952089603-YVxAtEAcuI7ETQnujjHUxhSgJEN4Yg',
+    accessTokenSecret: 'ONFjOYmL5755e9KxGWnFzQNXkG1IXFEx8iZoT8LQGPk08',
+});
 export async function register(req, res, next) {
     try {
         let body = req.body;
@@ -53,14 +58,7 @@ export async function login(req, res, next) {
         const password = req.body.password;
         if (email && password) {
             let authorized = await UserModel.authenticate(email, password);
-            // console.log("Creating Token")
-            // let userToken = { _id: authorized._id };
-            // let jwtToken = await jwt.sign(userToken, constants.JWT_SECRET);
-            // console.log('Token Created', jwtToken);
-            // authorized.token = jwtToken;
-            // console.log("AIT", authorized)
             return res.success('Login Success', {
-                // token: jwtToken,
                 email: authorized.email,
                 name: authorized.name
             });
@@ -88,6 +86,43 @@ export async function getSentimentByText(req, res, next) {
     }
 }
 
+export async function getSentimentByCsv(req, res, next) {
+    try {
+        let str = Buffer.from(req.file.buffer).toString();
+        let jsonData = await csvtojson().fromString(str);
+        // console.log("Json Data", jsonData);
+        let results = [];
+        let positive = 0, negative = 0, neutral = 0;
+        for (let el of jsonData) {
+            el = Object.entries(el).reduce((a, [key, value]) => {
+                a[key.toLowerCase()] = value;
+                return a;
+            }, {});
+            console.log("el", el);
+            let emotion = ''
+            let response = await getPolarityFromPyScript(el.text);
+            let polarity = Number.parseInt(response.results[0])
+            if (polarity >= 1) {
+                emotion = "Positive";
+                positive++;
+            }
+            else if (polarity == 0) {
+                emotion = "Neutral";
+                neutral++;
+            }
+            else {
+                emotion = "Negative";
+                negative++
+            }
+            if (response.success) {
+                results.push({ text: el.text, polarity, sentiment: emotion });
+            }
+        }
+        return res.success("working :)", { results, dataSet: [positive, negative, neutral] })
+    } catch (error) {
+        return res.error("Error While fetching Product Info")
+    }
+}
 export async function getSentimentFromTwitter(req, res, next) {
     try {
         let text = req.query.text;
@@ -124,51 +159,7 @@ export async function getSentimentFromTwitter(req, res, next) {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-const twitterClient = new TwitterClient({
-    apiKey: 'AL6gbsMB82UaB2aJTqRhfnJ0N',
-    apiSecret: '5kG5TYeLWzlFo4YKyQCxbfSXiSdoqEWOFWzF5kfI3o3SBoNspV',
-    accessToken: '1330790482952089603-YVxAtEAcuI7ETQnujjHUxhSgJEN4Yg',
-    accessTokenSecret: 'ONFjOYmL5755e9KxGWnFzQNXkG1IXFEx8iZoT8LQGPk08',
-});
-
-export async function getProductInfo(req, res, next) {
-    try {
-        var data = [
-            "Really cute piece, but it's huge. i ordered an xxs petite and it was unfortunately extremely wide and not flattering. returning.",
-            "I don't normally review my purchases, but i was so amazed at how poorly this dress was made, i couldn't help myself but to post a review. the neck line isn't even hemmed down so it flaps up. the material is thin and feel cheap. this dress isnt even worth $20 in my opinion. i was expecting a well made, good quality dress for the high price tag.",
-            "I hate You",
-            "It was bad movie i saw and west of money"
-        ]
-        var results = [];
-        // var results = await twitterClient.tweets.search({ q: 'wtc' });
-        for (let text of data) {
-            let response = await getPolarityFromPyScript(text);
-            if (response.success) {
-                results.push({ text: text, sentiment: response.results[0] });
-            }
-
-        }
-
-        return res.success("working :)", results)
-    } catch (error) {
-        return res.error("Error While fetching Product Info")
-    }
-}
-
-
 export async function getPolarityFromPyScript(text) {
-    let sentiment;
     let options = {
         mode: 'text',
         pythonPath: 'C:/Python37/python.exe',
@@ -188,3 +179,40 @@ export async function getPolarityFromPyScript(text) {
         });
     });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+// export async function getProductInfo(req, res, next) {
+//     try {
+//         var data = [
+//             "Really cute piece, but it's huge. i ordered an xxs petite and it was unfortunately extremely wide and not flattering. returning.",
+//             "I don't normally review my purchases, but i was so amazed at how poorly this dress was made, i couldn't help myself but to post a review. the neck line isn't even hemmed down so it flaps up. the material is thin and feel cheap. this dress isnt even worth $20 in my opinion. i was expecting a well made, good quality dress for the high price tag.",
+//             "I hate You",
+//             "It was bad movie i saw and west of money"
+//         ]
+//         var results = [];
+//         // var results = await twitterClient.tweets.search({ q: 'wtc' });
+//         for (let text of data) {
+//             let response = await getPolarityFromPyScript(text);
+//             if (response.success) {
+//                 results.push({ text: text, sentiment: response.results[0] });
+//             }
+
+//         }
+
+//         return res.success("working :)", results)
+//     } catch (error) {
+//         return res.error("Error While fetching Product Info")
+//     }
+// }
+
+
