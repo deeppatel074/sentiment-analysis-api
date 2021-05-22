@@ -1,6 +1,20 @@
 require('dotenv').config();
 
-
+let status = {
+  user: {
+    inactive: 0,
+    active: 1,
+    deleted: 2,
+    nonApproved: 3,
+    rejected: 4,
+  },
+  business: {
+    inactive: 0,
+    active: 1,
+    deleted: 2,
+    block: 3,
+  }
+};
 
 const devConfig = {
   JWT_SECRET: process.env.JWT_SECRET_DEV,
@@ -20,6 +34,7 @@ const prodConfig = {
 const defaultConfig = {
   PORT: process.env.PORT || 3000,
   RAVEN_ID: process.env.RAVEN_ID,
+  status
 };
 
 function envConfig(env) {
